@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 體感視訊控制 - 太空侵略者 (Space Invaders)</title>
+    <title>AI 體感視訊太空侵略者 (Continuous AI Space Invaders)</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -12,10 +13,10 @@
                 extend: {
                     colors: {
                         space: {
-                            900: '#0B0D1B',
-                            800: '#13172D',
-                            700: '#1F2447',
-                            border: '#2E366B',
+                            900: '#0A0C1B',
+                            800: '#12162D',
+                            700: '#1D2447',
+                            border: '#2E386E',
                             cyan: '#00F0FF',
                             pink: '#FF007A',
                             yellow: '#FFE600',
@@ -31,19 +32,21 @@
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <!-- TensorFlow.js and Teachable Machine Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@latest/dist/teachablemachine-pose.min.js"></script>
 
     <style>
-        .neon-glow-cyan { box-shadow: 0 0 15px rgba(0, 240, 255, 0.5); }
-        .neon-glow-pink { box-shadow: 0 0 15px rgba(255, 0, 122, 0.5); }
-        .neon-glow-green { box-shadow: 0 0 15px rgba(0, 255, 102, 0.5); }
+        .neon-glow-cyan { box-shadow: 0 0 15px rgba(0, 240, 255, 0.6); }
+        .neon-glow-pink { box-shadow: 0 0 15px rgba(255, 0, 122, 0.6); }
+        .neon-glow-green { box-shadow: 0 0 15px rgba(0, 255, 102, 0.6); }
         .neon-text-cyan { text-shadow: 0 0 8px rgba(0, 240, 255, 0.8); }
         .neon-text-pink { text-shadow: 0 0 8px rgba(255, 0, 122, 0.8); }
         .neon-text-yellow { text-shadow: 0 0 8px rgba(255, 230, 0, 0.8); }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0B0D1B; }
-        ::-webkit-scrollbar-thumb { background: #1F2447; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: #0A0C1B; }
+        ::-webkit-scrollbar-thumb { background: #1D2447; border-radius: 3px; }
     </style>
 </head>
 <body class="bg-space-900 text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-space-cyan selection:text-space-900">
@@ -51,20 +54,20 @@
     <header class="border-b border-space-border/60 bg-space-800/80 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-space-pink to-space-cyan flex items-center justify-center text-space-900 font-bold text-xl shadow-lg">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-space-pink via-purple-600 to-space-cyan flex items-center justify-center text-space-900 font-bold text-xl shadow-lg">
                     <i class="fa-solid fa-rocket"></i>
                 </div>
                 <div>
                     <h1 class="font-bold text-lg tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-space-cyan to-space-pink">
-                        SPACE INVADERS AI 體感版
+                        SPACE INVADERS AI 體感戰鬥版
                     </h1>
-                    <p class="text-xs text-slate-400">身體傾斜控制太空艙左右移動</p>
+                    <p class="text-xs text-slate-400">身體左傾/右傾控速 | 雙向相容持續偵測</p>
                 </div>
             </div>
             <div class="flex items-center gap-2 text-xs">
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-space-700/60 border border-space-border text-space-cyan">
                     <span class="w-2 h-2 rounded-full bg-space-cyan animate-pulse"></span>
-                    Model: <span class="font-mono text-slate-300">9qGt3_30b</span>
+                    Model ID: <span class="font-mono text-slate-300">9qGt3_30b</span>
                 </span>
             </div>
         </div>
@@ -72,7 +75,7 @@
 
     <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        <!-- 左側：遊戲畫面 (8 欄) -->
+        <!-- 左側：太空侵略者遊戲 Canvas 視窗 -->
         <section class="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
             
             <!-- 遊戲數據儀表板 -->
@@ -92,14 +95,13 @@
                     </div>
                 </div>
 
-                <!-- 生命值與控制按鈕 -->
                 <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-1.5" id="livesContainer" title="剩餘生命">
+                    <div class="flex items-center gap-1.5" id="livesContainer" title="剩餘生命值">
                         <i class="fa-solid fa-shuttle-space text-space-pink text-lg"></i>
                         <i class="fa-solid fa-shuttle-space text-space-pink text-lg"></i>
                         <i class="fa-solid fa-shuttle-space text-space-pink text-lg"></i>
                     </div>
-                    <button id="btnStartPause" class="px-5 py-2 rounded-lg bg-space-cyan text-space-900 font-bold hover:bg-cyan-300 transition-all flex items-center gap-2 shadow-md hover:neon-glow-cyan active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button id="btnStartPause" class="px-5 py-2 rounded-lg bg-space-cyan text-space-900 font-bold hover:bg-cyan-300 transition-all flex items-center gap-2 shadow-md hover:neon-glow-cyan active:scale-95">
                         <i class="fa-solid fa-play"></i> <span>開始遊戲</span>
                     </button>
                     <button id="btnRestart" class="px-3 py-2 rounded-lg bg-space-700 hover:bg-space-border text-slate-200 transition-all active:scale-95" title="重新開始">
@@ -112,15 +114,15 @@
             <div class="relative bg-black rounded-2xl border-2 border-space-border overflow-hidden aspect-[4/3] w-full shadow-2xl flex items-center justify-center">
                 <canvas id="gameCanvas" width="800" height="600" class="w-full h-full block bg-space-900"></canvas>
 
-                <!-- 遊戲 Overlay -->
-                <div id="gameOverlay" class="absolute inset-0 bg-space-900/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-center p-6">
+                <!-- 遊戲狀態 Overlay -->
+                <div id="gameOverlay" class="absolute inset-0 bg-space-900/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-center p-6 transition-all">
                     <div class="w-16 h-16 rounded-2xl bg-space-800 border border-space-cyan/40 flex items-center justify-center text-space-cyan text-3xl mb-2 neon-glow-cyan">
                         <i class="fa-solid fa-gamepad"></i>
                     </div>
                     <h2 id="overlayTitle" class="text-3xl font-bold text-white tracking-wider">AI 體感侵略者戰鬥</h2>
                     <p id="overlaySubtitle" class="text-sm text-slate-300 max-w-md leading-relaxed">
-                        請確保右側攝影機存取正常。<br>
-                        向鏡頭做動作：<span class="text-space-cyan font-bold">身體左傾 👈</span> 向左移動，<span class="text-space-pink font-bold">身體右傾 👉</span> 向右移動！
+                        點擊進入遊戲將自動開啟視訊鏡頭與 AI 體感識別！<br>
+                        向鏡頭做出姿勢：<span class="text-space-cyan font-bold">👈 身體左傾</span> 太空艙向左移動，<span class="text-space-pink font-bold">👉 身體右傾</span> 太空艙向右移動！
                     </p>
                     <button id="btnOverlayAction" class="mt-2 px-8 py-3 bg-gradient-to-r from-space-cyan to-blue-500 text-space-900 font-bold rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition">
                         進入遊戲
@@ -128,78 +130,91 @@
                 </div>
             </div>
 
-            <!-- 醒目操作提示卡片 -->
+            <!-- 操作指引卡片 -->
             <div class="bg-space-800/80 border border-space-border rounded-xl p-4 text-sm text-slate-300 shadow-md">
                 <h3 class="font-bold text-space-cyan flex items-center gap-2 mb-3 text-base">
-                    <i class="fa-solid fa-person-dots-from-line text-space-pink"></i> 體感操作與遊戲指引
+                    <i class="fa-solid fa-person-dots-from-line text-space-pink"></i> 體感操作與掩體指引
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs leading-relaxed">
                     <div class="bg-space-900/80 p-3 rounded-lg border border-space-cyan/30 flex flex-col gap-1.5">
                         <div class="font-bold text-space-cyan flex items-center gap-2 text-sm">
-                            <i class="fa-solid fa-person-arrow-up-from-line"></i> 體感動作引導
+                            <i class="fa-solid fa-child-reaching"></i> 身體移動控制 (鏡頭持續推論)
                         </div>
-                        <div>👈 <strong class="text-white">身體左傾：</strong> 操控太空艙向左移動</div>
-                        <div>👉 <strong class="text-white">身體右傾：</strong> 操控太空艙向右移動</div>
-                        <div class="text-slate-400 text-[11px] mt-1">* 系統會即時檢測畫面中的動作並反映在太空艙移動上。</div>
+                        <div>👈 <strong class="text-white">身體左傾：</strong> 控制太空艙向左移動</div>
+                        <div>👉 <strong class="text-white">身體右傾：</strong> 控制太空艙向右移動</div>
+                        <div>🧍 <strong class="text-white">保持直立：</strong> 太空艙原地待命</div>
                     </div>
                     <div class="bg-space-900/80 p-3 rounded-lg border border-space-border/50 flex flex-col gap-1.5">
                         <div class="font-bold text-space-yellow flex items-center gap-2 text-sm">
-                            <i class="fa-solid fa-keyboard"></i> 鍵盤備援與射擊
+                            <i class="fa-solid fa-shield-halved"></i> 掩體與開火模式
                         </div>
-                        <div>• 鍵盤左移：<kbd class="px-1.5 py-0.5 bg-space-700 rounded text-slate-200 font-mono">←</kbd> 或 <kbd class="px-1.5 py-0.5 bg-space-700 rounded text-slate-200 font-mono">A</kbd></div>
-                        <div>• 鍵盤右移：<kbd class="px-1.5 py-0.5 bg-space-700 rounded text-slate-200 font-mono">→</kbd> 或 <kbd class="px-1.5 py-0.5 bg-space-700 rounded text-slate-200 font-mono">D</kbd></div>
-                        <div>• 手動發射：<kbd class="px-1.5 py-0.5 bg-space-700 rounded text-slate-200 font-mono">Space 空白鍵</kbd></div>
+                        <div>• 綠色防禦掩體：可阻擋子彈，隨擊中次數磨損</div>
+                        <div>• 自動開火：支援開啟 switch 自動發射子彈</div>
+                        <div>• 鍵盤備援：<kbd class="px-1 py-0.5 bg-space-700 rounded text-slate-200">A/D</kbd> 或 <kbd class="px-1 py-0.5 bg-space-700 rounded text-slate-200">←/→</kbd> 移動，<kbd class="px-1 py-0.5 bg-space-700 rounded text-slate-200">Space</kbd> 射擊</div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- 右側：AI 視訊辨識儀表板 (4 欄) -->
+        <!-- 右側：AI 視訊辨識與鏡頭儀表板 -->
         <section class="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
 
-            <!-- 攝影機畫面卡片與動態指示 -->
+            <!-- 攝影機畫面與體感提示 -->
             <div class="bg-space-800 border border-space-border rounded-xl p-4 shadow-lg flex flex-col gap-3">
                 <div class="flex justify-between items-center border-b border-space-border/60 pb-2.5">
                     <h2 class="font-bold text-white flex items-center gap-2 text-sm">
-                        <i class="fa-solid fa-camera text-space-pink"></i> 體感識別攝影機
+                        <i class="fa-solid fa-video text-space-pink"></i> 體感識別即時鏡頭
                     </h2>
-                    <span id="modelStatusTag" class="text-xs px-2.5 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 flex items-center gap-1.5">
-                        <i class="fa-solid fa-spinner animate-spin"></i> 載入模型中...
+                    <span id="modelStatusTag" class="text-xs px-2.5 py-0.5 rounded-full bg-space-700 text-slate-300 border border-space-border flex items-center gap-1.5">
+                        <i class="fa-solid fa-power-off"></i> 尚未啟動攝影機
                     </span>
                 </div>
 
-                <!-- 顯眼的動作提醒標籤列 -->
-                <div class="grid grid-cols-2 gap-2 text-xs font-bold text-center">
-                    <div id="badgeLeftHint" class="py-2 px-1 rounded-lg bg-space-900 border border-space-cyan/40 text-slate-400 transition-all flex items-center justify-center gap-1">
-                        <span>👈</span> 身體左傾 (向左)
+                <!-- 動作提示高亮卡片 -->
+                <div class="grid grid-cols-3 gap-1.5 text-xs font-bold text-center">
+                    <div id="badgeLeftHint" class="py-2 px-1 rounded-lg bg-space-900 border border-space-cyan/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5">
+                        <span class="text-base">👈</span>
+                        <span>身體左傾</span>
                     </div>
-                    <div id="badgeRightHint" class="py-2 px-1 rounded-lg bg-space-900 border border-space-pink/40 text-slate-400 transition-all flex items-center justify-center gap-1">
-                        身體右傾 (向右) <span>👉</span>
+                    <div id="badgeNeutralHint" class="py-2 px-1 rounded-lg bg-space-900 border border-slate-600/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5">
+                        <span class="text-base">🧍</span>
+                        <span>保持直立</span>
+                    </div>
+                    <div id="badgeRightHint" class="py-2 px-1 rounded-lg bg-space-900 border border-space-pink/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5">
+                        <span class="text-base">👉</span>
+                        <span>身體右傾</span>
                     </div>
                 </div>
 
-                <!-- Webcam 視訊畫面容器 -->
+                <!-- Webcam 視訊 Canvas 容器 -->
                 <div class="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-space-border/80 flex items-center justify-center shadow-inner">
-                    <div id="webcamContainer" class="w-full h-full flex items-center justify-center">
-                        <div class="text-xs text-slate-500 flex items-center gap-2">
-                            <i class="fa-solid fa-circle-notch animate-spin"></i> 請求相機權限...
+                    <div id="webcamContainer" class="w-full h-full flex items-center justify-center p-4">
+                        <div class="text-center flex flex-col items-center justify-center gap-2">
+                            <i class="fa-solid fa-camera text-space-cyan text-3xl mb-1 animate-bounce"></i>
+                            <div class="text-xs text-slate-200 font-bold">點擊開始遊戲將自動啟動鏡頭</div>
+                            <p class="text-[11px] text-slate-400 max-w-xs leading-relaxed">
+                                允許存取鏡頭即可透過身體左傾/右傾操作遊戲。<br>若不開啟鏡頭，可隨時使用鍵盤暢玩！
+                            </p>
+                            <button onclick="initTeachableMachine()" class="mt-2 px-4 py-2 bg-gradient-to-r from-space-cyan to-blue-500 text-space-900 font-bold rounded-lg text-xs hover:brightness-110 transition shadow-lg active:scale-95 flex items-center gap-2 cursor-pointer">
+                                <i class="fa-solid fa-video"></i> 手動啟動攝影機與 AI 模型
+                            </button>
                         </div>
                     </div>
                     
-                    <!-- 即時最高判定指令浮層 -->
-                    <div class="absolute bottom-2 left-2 right-2 bg-space-900/85 backdrop-blur-md border border-space-border px-3 py-1.5 rounded-md flex justify-between items-center">
-                        <span class="text-xs text-slate-400">目前動作判定:</span>
-                        <span id="detectedCommand" class="font-mono font-bold text-sm text-slate-300">待命中...</span>
+                    <!-- 即時最高判定指令條 -->
+                    <div class="absolute bottom-2 left-2 right-2 bg-space-900/90 backdrop-blur-md border border-space-border px-3 py-1.5 rounded-md flex justify-between items-center shadow-md">
+                        <span class="text-xs text-slate-400">目前辨識指令:</span>
+                        <span id="detectedCommand" class="font-mono font-bold text-xs text-slate-300">等待啟動...</span>
                     </div>
                 </div>
 
-                <!-- 自動連發子彈開關 -->
+                <!-- 自動連發子彈切換開關 -->
                 <div class="bg-space-900/80 border border-space-border rounded-lg p-3 flex items-center justify-between">
                     <div>
                         <div class="font-bold text-sm text-slate-200 flex items-center gap-1.5">
                             <i class="fa-solid fa-bolt text-space-yellow"></i> 自動連發子彈
                         </div>
-                        <p class="text-[11px] text-slate-400">開啟後太空艙將持續發射雷射</p>
+                        <p class="text-[11px] text-slate-400">開啟後將持續向上發射雷射子彈</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id="autoFireToggle" class="sr-only peer" checked>
@@ -207,42 +222,41 @@
                     </label>
                 </div>
 
-                <!-- 各類別信心度進度條 -->
+                <!-- 即時信心分數列表 -->
                 <div>
                     <div class="text-xs font-bold text-slate-400 mb-2 flex justify-between">
                         <span>模型類別 (Class)</span>
                         <span>信心分數 (Confidence)</span>
                     </div>
                     <div id="predictionList" class="flex flex-col gap-2">
-                        <div class="text-xs text-slate-500 text-center py-2">載入模型資料中...</div>
+                        <div class="text-xs text-slate-500 text-center py-2">按下開始遊戲後將載入模型...</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 手動映射與門檻控制卡片 -->
+            <!-- 動作映射設定 -->
             <div class="bg-space-800 border border-space-border rounded-xl p-4 shadow-lg flex flex-col gap-3">
                 <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
-                    <i class="fa-solid fa-sliders text-space-cyan"></i> 體感動作手動映射
+                    <i class="fa-solid fa-sliders text-space-cyan"></i> 動作對應選單
                 </h3>
-                <p class="text-xs text-slate-400 leading-normal">預設自動匹配包含 left / right 或 左 / 右 的類別：</p>
 
                 <div class="grid grid-cols-2 gap-3 text-xs">
                     <div>
-                        <label class="block text-slate-400 mb-1">👈 左傾 (Left)</label>
+                        <label class="block text-slate-400 mb-1">👈 左傾類別 (Left)</label>
                         <select id="selectLeftClass" class="w-full bg-space-900 border border-space-border rounded px-2.5 py-1.5 text-slate-200 focus:border-space-cyan focus:outline-none">
-                            <option value="">載入中...</option>
+                            <option value="">(尚未載入模型)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-slate-400 mb-1">👉 右傾 (Right)</label>
+                        <label class="block text-slate-400 mb-1">👉 右傾類別 (Right)</label>
                         <select id="selectRightClass" class="w-full bg-space-900 border border-space-border rounded px-2.5 py-1.5 text-slate-200 focus:border-space-cyan focus:outline-none">
-                            <option value="">載入中...</option>
+                            <option value="">(尚未載入模型)</option>
                         </select>
                     </div>
                 </div>
                 <div class="mt-1">
-                    <label class="block text-xs text-slate-400 mb-1">🎯 觸發門檻 (<span id="thresholdVal">70</span>%)</label>
-                    <input type="range" id="thresholdSlider" min="50" max="95" value="70" class="w-full accent-space-cyan bg-space-900 rounded-lg cursor-pointer h-1.5">
+                    <label class="block text-xs text-slate-400 mb-1">🎯 辨識觸發門檻 (<span id="thresholdVal">65</span>%)</label>
+                    <input type="range" id="thresholdSlider" min="40" max="95" value="65" class="w-full accent-space-cyan bg-space-900 rounded-lg cursor-pointer h-1.5">
                 </div>
             </div>
 
@@ -251,22 +265,26 @@
     </main>
 
     <footer class="border-t border-space-border/40 py-3 text-center text-xs text-slate-500 bg-space-900">
-        太空侵略者 AI 體感互動遊戲 &copy; 2026 - Powered by TensorFlow.js & Teachable Machine
+        太空侵略者 AI 體感互動網頁遊戲 &copy; 2026 - TensorFlow.js Continuous Inference Engine
     </footer>
 
     <script>
-        // Teachable Machine 模型 URL
+        // Teachable Machine 模型網址
         const MODEL_URL = "https://teachablemachine.withgoogle.com/models/9qGt3_30b/";
+        
         let model, webcam, maxPredictions = 0;
+        let isPoseModel = false;
         let isModelLoaded = false;
+        let isPredicting = false; // 推論鎖定標記，防止 async 堆疊堵塞
+
         let predictionResult = { left: false, right: false, topLabel: "靜止", topScore: 0 };
 
-        // 動作類別對應
+        // 類別設定與門檻
         let leftClassName = "";
         let rightClassName = "";
-        let confidenceThreshold = 0.7;
+        let confidenceThreshold = 0.65;
 
-        // UI 參考元素
+        // UI DOM 元素
         const modelStatusTag = document.getElementById("modelStatusTag");
         const webcamContainer = document.getElementById("webcamContainer");
         const predictionList = document.getElementById("predictionList");
@@ -276,20 +294,53 @@
         const thresholdSlider = document.getElementById("thresholdSlider");
         const thresholdVal = document.getElementById("thresholdVal");
         const autoFireToggle = document.getElementById("autoFireToggle");
+
         const badgeLeftHint = document.getElementById("badgeLeftHint");
+        const badgeNeutralHint = document.getElementById("badgeNeutralHint");
         const badgeRightHint = document.getElementById("badgeRightHint");
 
-        // 初始化 Teachable Machine 模型與鏡頭
+        // 初始化 Teachable Machine 並開啟 continuous 推論迴圈
         async function initTeachableMachine() {
+            if (isModelLoaded) return; // 避免重複載入
+
+            // 若已有既有相機串流，先徹底關閉釋放資源
+            if (webcam && typeof webcam.stop === 'function') {
+                try { webcam.stop(); } catch (e) {}
+            }
+
+            modelStatusTag.className = "text-xs px-2.5 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 flex items-center gap-1.5";
+            modelStatusTag.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> 載入 AI 模型中...`;
+            
+            webcamContainer.innerHTML = `
+                <div class="text-xs text-slate-300 flex flex-col items-center gap-2">
+                    <i class="fa-solid fa-circle-notch animate-spin text-space-cyan text-2xl"></i>
+                    <div>正在下載 AI 模型與請求攝影機權限...</div>
+                </div>
+            `;
+
             try {
                 const modelURL = MODEL_URL + "model.json";
                 const metadataURL = MODEL_URL + "metadata.json";
 
-                model = await tmImage.load(modelURL, metadataURL);
+                // 自動支援 Image 或 Pose 模型類型
+                try {
+                    model = await tmImage.load(modelURL, metadataURL);
+                    isPoseModel = false;
+                } catch (e) {
+                    model = await tmPose.load(modelURL, metadataURL);
+                    isPoseModel = true;
+                }
+
                 maxPredictions = model.getTotalClasses();
 
+                // 初始化相機
                 const flip = true; 
-                webcam = new tmImage.Webcam(320, 240, flip);
+                if (isPoseModel) {
+                    webcam = new tmPose.Webcam(320, 240, flip);
+                } else {
+                    webcam = new tmImage.Webcam(320, 240, flip);
+                }
+                
                 await webcam.setup();
                 await webcam.play();
                 
@@ -300,644 +351,38 @@
                 setupClassOptions();
 
                 modelStatusTag.className = "text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5";
-                modelStatusTag.innerHTML = `<i class="fa-solid fa-circle-check"></i> 體感偵測中`;
+                modelStatusTag.innerHTML = `<i class="fa-solid fa-circle-check"></i> 體感連續偵測中`;
 
                 isModelLoaded = true;
-                btnStartPause.disabled = false;
 
-                window.requestAnimationFrame(loopWebcam);
+                // 啟動不間斷的連續辨識推論迴圈
+                startContinuousDetection();
+
             } catch (err) {
-                console.error("模型載入或鏡頭開啓失敗：", err);
-                modelStatusTag.className = "text-xs px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1.5";
-                modelStatusTag.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> 載入失敗`;
-                alert("無法載入 AI 模型或存取攝影機。您仍可使用鍵盤方向鍵玩遊戲！");
-            }
-        }
+                // 溫和捕捉攝影機被拒絕或權限受限的狀態，不干擾鍵盤模式遊玩
+                modelStatusTag.className = "text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5";
+                modelStatusTag.innerHTML = `<i class="fa-solid fa-keyboard"></i> 已啟用鍵盤模式`;
+                
+                let errorDetails = "無法存取攝影機（可能權限未開放或受到環境限制）";
+                if (err && err.name === "NotAllowedError") {
+                    errorDetails = "攝影機存取已被瀏覽器拒絕，請檢查網頁權限設定。";
+                }
 
-        function setupClassOptions() {
-            selectLeftClass.innerHTML = '<option value="">(無)</option>';
-            selectRightClass.innerHTML = '<option value="">(無)</option>';
-            predictionList.innerHTML = "";
-
-            for (let i = 0; i < maxPredictions; i++) {
-                const label = model.getClassLabels()[i];
-
-                const optL = new Option(label, label);
-                const optR = new Option(label, label);
-                selectLeftClass.add(optL);
-                selectRightClass.add(optR);
-
-                const item = document.createElement("div");
-                item.className = "bg-space-900/80 p-2 rounded border border-space-border/60 text-xs flex flex-col gap-1";
-                item.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span class="font-semibold text-slate-300" id="label-name-${i}">${label}</span>
-                        <span class="font-mono text-space-cyan" id="label-score-${i}">0%</span>
-                    </div>
-                    <div class="w-full bg-space-700 h-1.5 rounded-full overflow-hidden">
-                        <div id="label-bar-${i}" class="bg-space-cyan h-full w-0 transition-all duration-100"></div>
+                webcamContainer.innerHTML = `
+                    <div class="p-3 text-center flex flex-col items-center justify-center gap-2">
+                        <i class="fa-solid fa-camera-slash text-amber-400 text-2xl mb-1"></i>
+                        <div class="text-xs text-slate-200 font-bold">${errorDetails}</div>
+                        <div class="text-[11px] text-slate-400 max-w-xs leading-relaxed bg-space-900/90 p-2 rounded border border-space-border/60">
+                            已自動啟用 <span class="text-space-cyan font-bold">鍵盤操控模式</span>。<br>
+                            使用 <kbd class="px-1 bg-space-700 rounded text-slate-200">A</kbd>/<kbd class="px-1 bg-space-700 rounded text-slate-200">D</kbd> 或 <kbd class="px-1 bg-space-700 rounded text-slate-200">←</kbd>/<kbd class="px-1 bg-space-700 rounded text-slate-200">→</kbd> 控制左右，<kbd class="px-1 bg-space-700 rounded text-slate-200">Space</kbd> 發射。
+                        </div>
+                        <button onclick="initTeachableMachine()" class="mt-1 px-3 py-1.5 bg-space-700 hover:bg-space-border text-xs text-slate-200 rounded-lg transition-all flex items-center gap-1.5 border border-space-border cursor-pointer">
+                            <i class="fa-solid fa-rotate-right"></i> 重新嘗試連接攝影機
+                        </button>
                     </div>
                 `;
-                predictionList.appendChild(item);
 
-                const lower = label.toLowerCase();
-                if (lower.includes("left") || lower.includes("左")) {
-                    leftClassName = label;
-                }
-                if (lower.includes("right") || lower.includes("右")) {
-                    rightClassName = label;
-                }
-            }
-
-            if (leftClassName) selectLeftClass.value = leftClassName;
-            if (rightClassName) selectRightClass.value = rightClassName;
-        }
-
-        async function loopWebcam() {
-            webcam.update();
-            await predict();
-            window.requestAnimationFrame(loopWebcam);
-        }
-
-        async function predict() {
-            const predictions = await model.predict(webcam.canvas);
-            let highestScore = 0;
-            let highestLabel = "靜止";
-
-            predictionResult.left = false;
-            predictionResult.right = false;
-
-            for (let i = 0; i < maxPredictions; i++) {
-                const label = predictions[i].className;
-                const score = predictions[i].probability;
-                const scorePercent = Math.round(score * 100);
-
-                const bar = document.getElementById(`label-bar-${i}`);
-                const scoreText = document.getElementById(`label-score-${i}`);
-                if (bar) bar.style.width = scorePercent + "%";
-                if (scoreText) scoreText.innerText = scorePercent + "%";
-
-                if (score > highestScore) {
-                    highestScore = score;
-                    highestLabel = label;
-                }
-            }
-
-            predictionResult.topLabel = highestLabel;
-            predictionResult.topScore = highestScore;
-
-            // 重置動態提示指示牌 UI
-            badgeLeftHint.className = "py-2 px-1 rounded-lg bg-space-900 border border-space-cyan/30 text-slate-400 transition-all flex items-center justify-center gap-1 opacity-60";
-            badgeRightHint.className = "py-2 px-1 rounded-lg bg-space-900 border border-space-pink/30 text-slate-400 transition-all flex items-center justify-center gap-1 opacity-60";
-
-            if (highestScore >= confidenceThreshold) {
-                if (highestLabel === selectLeftClass.value && selectLeftClass.value !== "") {
-                    predictionResult.left = true;
-                    detectedCommand.innerText = `👈 身體左傾 (${Math.round(highestScore * 100)}%)`;
-                    detectedCommand.className = "font-mono font-bold text-sm text-space-cyan neon-text-cyan";
-
-                    // 亮起左傾指示
-                    badgeLeftHint.className = "py-2 px-1 rounded-lg bg-space-cyan/20 border-2 border-space-cyan text-space-cyan font-bold scale-105 neon-glow-cyan transition-all flex items-center justify-center gap-1 opacity-100";
-                } else if (highestLabel === selectRightClass.value && selectRightClass.value !== "") {
-                    predictionResult.right = true;
-                    detectedCommand.innerText = `👉 身體右傾 (${Math.round(highestScore * 100)}%)`;
-                    detectedCommand.className = "font-mono font-bold text-sm text-space-pink neon-text-pink";
-
-                    // 亮起右傾指示
-                    badgeRightHint.className = "py-2 px-1 rounded-lg bg-space-pink/20 border-2 border-space-pink text-space-pink font-bold scale-105 neon-glow-pink transition-all flex items-center justify-center gap-1 opacity-100";
-                } else {
-                    detectedCommand.innerText = `🛑 保持靜止 (${Math.round(highestScore * 100)}%)`;
-                    detectedCommand.className = "font-mono font-bold text-sm text-slate-300";
-                }
-            } else {
-                detectedCommand.innerText = `待命 (未達門檻 ${Math.round(highestScore*100)}%)`;
-                detectedCommand.className = "font-mono font-bold text-sm text-slate-500";
-            }
-        }
-
-        selectLeftClass.addEventListener("change", (e) => leftClassName = e.target.value);
-        selectRightClass.addEventListener("change", (e) => rightClassName = e.target.value);
-        thresholdSlider.addEventListener("input", (e) => {
-            confidenceThreshold = e.target.value / 100;
-            thresholdVal.innerText = e.target.value;
-        });
-
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-
-        const scoreDisplay = document.getElementById("scoreDisplay");
-        const highScoreDisplay = document.getElementById("highScoreDisplay");
-        const waveDisplay = document.getElementById("waveDisplay");
-        const livesContainer = document.getElementById("livesContainer");
-        const btnStartPause = document.getElementById("btnStartPause");
-        const btnRestart = document.getElementById("btnRestart");
-        const gameOverlay = document.getElementById("gameOverlay");
-        const overlayTitle = document.getElementById("overlayTitle");
-        const overlaySubtitle = document.getElementById("overlaySubtitle");
-        const btnOverlayAction = document.getElementById("btnOverlayAction");
-
-        let gameState = "IDLE";
-        let score = 0;
-        let highScore = parseInt(localStorage.getItem("invaders_highscore") || "0");
-        let lives = 3;
-        let wave = 1;
-        let autoShootTimer = 0;
-
-        highScoreDisplay.innerText = String(highScore).padStart(5, '0');
-
-        // 鍵盤備援
-        const keys = { Left: false, Right: false, Space: false };
-        window.addEventListener("keydown", (e) => {
-            if (e.code === "ArrowLeft" || e.code === "KeyA") keys.Left = true;
-            if (e.code === "ArrowRight" || e.code === "KeyD") keys.Right = true;
-            if (e.code === "Space") {
-                keys.Space = true;
-                if (gameState === "PLAYING" && !autoFireToggle.checked) {
-                    player.shoot();
-                }
-            }
-        });
-        window.addEventListener("keyup", (e) => {
-            if (e.code === "ArrowLeft" || e.code === "KeyA") keys.Left = false;
-            if (e.code === "ArrowRight" || e.code === "KeyD") keys.Right = false;
-            if (e.code === "Space") keys.Space = false;
-        });
-
-        // 玩家太空艙
-        const player = {
-            x: canvas.width / 2 - 22,
-            y: canvas.height - 50,
-            width: 44,
-            height: 24,
-            speed: 6.5,
-            color: "#00F0FF",
-            
-            draw() {
-                ctx.save();
-                ctx.fillStyle = this.color;
-                ctx.shadowColor = "#00F0FF";
-                ctx.shadowBlur = 12;
-                
-                ctx.beginPath();
-                ctx.moveTo(this.x + this.width / 2, this.y);
-                ctx.lineTo(this.x + this.width, this.y + this.height);
-                ctx.lineTo(this.x + this.width * 0.8, this.y + this.height * 0.7);
-                ctx.lineTo(this.x + this.width * 0.2, this.y + this.height * 0.7);
-                ctx.lineTo(this.x, this.y + this.height);
-                ctx.closePath();
-                ctx.fill();
-
-                ctx.fillRect(this.x + this.width / 2 - 2.5, this.y - 6, 5, 8);
-                ctx.restore();
-            },
-
-            update() {
-                const moveLeft = predictionResult.left || keys.Left;
-                const moveRight = predictionResult.right || keys.Right;
-
-                if (moveLeft && this.x > 10) {
-                    this.x -= this.speed;
-                }
-                if (moveRight && this.x < canvas.width - this.width - 10) {
-                    this.x += this.speed;
-                }
-            },
-
-            shoot() {
-                bullets.push(new Bullet(this.x + this.width / 2 - 2, this.y, -9, "#00F0FF", true));
-            }
-        };
-
-        // 防禦掩體 (Bunker) 類別
-        class Bunker {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.width = 64;
-                this.height = 40;
-                this.pixelSize = 4;
-                this.gridCols = this.width / this.pixelSize;
-                this.gridRows = this.height / this.pixelSize;
-                this.blocks = [];
-
-                for (let r = 0; r < this.gridRows; r++) {
-                    this.blocks[r] = [];
-                    for (let c = 0; c < this.gridCols; c++) {
-                        // 拱門形狀
-                        if (r > this.gridRows - 4 && c > 3 && c < this.gridCols - 4) {
-                            this.blocks[r][c] = false;
-                        } else if ((r === 0 && (c === 0 || c === this.gridCols - 1)) || 
-                                   (r === 1 && (c === 0 || c === this.gridCols - 1))) {
-                            this.blocks[r][c] = false;
-                        } else {
-                            this.blocks[r][c] = true;
-                        }
-                    }
-                }
-            }
-
-            draw() {
-                ctx.save();
-                ctx.fillStyle = "#00FF66";
-                ctx.shadowColor = "#00FF66";
-                ctx.shadowBlur = 4;
-
-                for (let r = 0; r < this.gridRows; r++) {
-                    for (let c = 0; c < this.gridCols; c++) {
-                        if (this.blocks[r][c]) {
-                            ctx.fillRect(
-                                this.x + c * this.pixelSize,
-                                this.y + r * this.pixelSize,
-                                this.pixelSize,
-                                this.pixelSize
-                            );
-                        }
-                    }
-                }
-                ctx.restore();
-            }
-
-            // 擊中物理碎裂
-            hit(bx, by, radius = 2) {
-                const col = Math.floor((bx - this.x) / this.pixelSize);
-                const row = Math.floor((by - this.y) / this.pixelSize);
-
-                let destroyedAny = false;
-                for (let r = row - radius; r <= row + radius; r++) {
-                    for (let c = col - radius; c <= col + radius; c++) {
-                        if (r >= 0 && r < this.gridRows && c >= 0 && c < this.gridCols) {
-                            if (this.blocks[r][c] && Math.random() < 0.8) {
-                                this.blocks[r][c] = false;
-                                destroyedAny = true;
-                            }
-                        }
-                    }
-                }
-                return destroyedAny;
-            }
-        }
-
-        // 子彈類別
-        class Bullet {
-            constructor(x, y, speedY, color, isPlayer) {
-                this.x = x;
-                this.y = y;
-                this.width = 4;
-                this.height = 12;
-                this.speedY = speedY;
-                this.color = color;
-                this.isPlayer = isPlayer;
-                this.markedForDeletion = false;
-            }
-
-            draw() {
-                ctx.save();
-                ctx.fillStyle = this.color;
-                ctx.shadowColor = this.color;
-                ctx.shadowBlur = 8;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
-                ctx.restore();
-            }
-
-            update() {
-                this.y += this.speedY;
-                if (this.y < -20 || this.y > canvas.height + 20) {
-                    this.markedForDeletion = true;
-                }
-            }
-        }
-
-        // 外星人類別
-        class Enemy {
-            constructor(x, y, type) {
-                this.x = x;
-                this.y = y;
-                this.width = 32;
-                this.height = 24;
-                this.type = type;
-                this.markedForDeletion = false;
-            }
-
-            draw() {
-                ctx.save();
-                let color = "#FF007A";
-                if (this.type === 1) color = "#FFE600";
-                if (this.type === 2) color = "#A855F7";
-
-                ctx.fillStyle = color;
-                ctx.shadowColor = color;
-                ctx.shadowBlur = 6;
-
-                ctx.fillRect(this.x + 6, this.y, this.width - 12, this.height);
-                ctx.fillRect(this.x, this.y + 6, this.width, this.height - 12);
-
-                ctx.fillStyle = "#0B0D1B";
-                ctx.fillRect(this.x + 6, this.y + 8, 5, 5);
-                ctx.fillRect(this.x + this.width - 11, this.y + 8, 5, 5);
-
-                ctx.restore();
-            }
-        }
-
-        // 爆炸粒子類別
-        class Particle {
-            constructor(x, y, color) {
-                this.x = x;
-                this.y = y;
-                this.vx = (Math.random() - 0.5) * 6;
-                this.vy = (Math.random() - 0.5) * 6;
-                this.radius = Math.random() * 3 + 1;
-                this.color = color;
-                this.alpha = 1;
-            }
-
-            draw() {
-                ctx.save();
-                ctx.globalAlpha = this.alpha;
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
-
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-                this.alpha -= 0.035;
-            }
-        }
-
-        let bullets = [];
-        let enemies = [];
-        let particles = [];
-        let bunkers = [];
-        let enemyDirection = 1;
-        let enemyMoveTimer = 0;
-        let enemyMoveInterval = 30;
-
-        function spawnEnemies() {
-            enemies = [];
-            const rows = 4;
-            const cols = 8;
-            const spacingX = 52;
-            const spacingY = 40;
-            const offsetX = (canvas.width - (cols * spacingX)) / 2;
-            const offsetY = 60;
-
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const type = r % 3;
-                    enemies.push(new Enemy(offsetX + c * spacingX, offsetY + r * spacingY, type));
-                }
-            }
-            enemyMoveInterval = Math.max(8, 32 - wave * 3);
-        }
-
-        function createBunkers() {
-            bunkers = [];
-            const count = 4;
-            const spacing = canvas.width / (count + 1);
-            for (let i = 1; i <= count; i++) {
-                bunkers.push(new Bunker(spacing * i - 32, canvas.height - 120));
-            }
-        }
-
-        function createExplosion(x, y, color, count = 12) {
-            for (let i = 0; i < count; i++) {
-                particles.push(new Particle(x, y, color));
-            }
-        }
-
-        function updateHUD() {
-            scoreDisplay.innerText = String(score).padStart(5, '0');
-            highScoreDisplay.innerText = String(highScore).padStart(5, '0');
-            waveDisplay.innerText = wave;
-
-            livesContainer.innerHTML = "";
-            for (let i = 0; i < lives; i++) {
-                livesContainer.innerHTML += `<i class="fa-solid fa-shuttle-space text-space-pink text-lg"></i>`;
-            }
-        }
-
-        function gameLoop() {
-            if (gameState === "PLAYING") {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                drawStars();
-
-                // 1. 玩家更新
-                player.update();
-                player.draw();
-
-                // 2. 畫防禦掩體
-                bunkers.forEach(bunker => bunker.draw());
-
-                // 連發射擊處理
-                if (autoFireToggle.checked) {
-                    autoShootTimer++;
-                    if (autoShootTimer % 12 === 0) {
-                        player.shoot();
-                    }
-                }
-
-                // 3. 子彈更新
-                bullets.forEach(bullet => {
-                    bullet.update();
-                    bullet.draw();
-                });
-
-                // 4. 外星人移動 logic
-                enemyMoveTimer++;
-                if (enemyMoveTimer >= enemyMoveInterval) {
-                    enemyMoveTimer = 0;
-                    let hitEdge = false;
-
-                    enemies.forEach(enemy => {
-                        enemy.x += enemyDirection * 12;
-                        if (enemy.x <= 15 || enemy.x + enemy.width >= canvas.width - 15) {
-                            hitEdge = true;
-                        }
-                    });
-
-                    if (hitEdge) {
-                        enemyDirection *= -1;
-                        enemies.forEach(enemy => {
-                            enemy.y += 18;
-                            if (enemy.y + enemy.height >= player.y) {
-                                triggerGameOver();
-                            }
-                        });
-                    }
-
-                    if (enemies.length > 0 && Math.random() < 0.35) {
-                        const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
-                        bullets.push(new Bullet(randomEnemy.x + randomEnemy.width / 2, randomEnemy.y + randomEnemy.height, 4 + wave * 0.5, "#FF007A", false));
-                    }
-                }
-
-                enemies.forEach(enemy => enemy.draw());
-
-                // 5. 碰撞檢測：子彈 vs 防禦掩體
-                bullets.forEach(bullet => {
-                    bunkers.forEach(bunker => {
-                        if (!bullet.markedForDeletion &&
-                            bullet.x > bunker.x && bullet.x < bunker.x + bunker.width &&
-                            bullet.y > bunker.y && bullet.y < bunker.y + bunker.height) {
-                            
-                            const hit = bunker.hit(bullet.x, bullet.y);
-                            if (hit) {
-                                bullet.markedForDeletion = true;
-                                createExplosion(bullet.x, bullet.y, "#00FF66", 5);
-                            }
-                        }
-                    });
-                });
-
-                // 6. 碰撞檢測：玩家子彈 vs 外星人
-                bullets.forEach(bullet => {
-                    if (bullet.isPlayer) {
-                        enemies.forEach(enemy => {
-                            if (!bullet.markedForDeletion && !enemy.markedForDeletion &&
-                                bullet.x < enemy.x + enemy.width &&
-                                bullet.x + bullet.width > enemy.x &&
-                                bullet.y < enemy.y + enemy.height &&
-                                bullet.y + bullet.height > enemy.y) {
-                                
-                                bullet.markedForDeletion = true;
-                                enemy.markedForDeletion = true;
-                                createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, "#FF007A");
-                                score += (3 - enemy.type) * 100;
-                                if (score > highScore) {
-                                    highScore = score;
-                                    localStorage.setItem("invaders_highscore", highScore);
-                                }
-                                updateHUD();
-                            }
-                        });
-                    } else {
-                        // 敵方子彈 vs 玩家
-                        if (!bullet.markedForDeletion &&
-                            bullet.x < player.x + player.width &&
-                            bullet.x + bullet.width > player.x &&
-                            bullet.y < player.y + player.height &&
-                            bullet.y + bullet.height > player.y) {
-                            
-                            bullet.markedForDeletion = true;
-                            createExplosion(player.x + player.width / 2, player.y + player.height / 2, "#00F0FF", 20);
-                            lives--;
-                            updateHUD();
-
-                            if (lives <= 0) {
-                                triggerGameOver();
-                            }
-                        }
-                    }
-                });
-
-                bullets = bullets.filter(b => !b.markedForDeletion);
-                enemies = enemies.filter(e => !e.markedForDeletion);
-
-                // 7. 粒子效果
-                particles.forEach((p, idx) => {
-                    p.update();
-                    p.draw();
-                    if (p.alpha <= 0) particles.splice(idx, 1);
-                });
-
-                // 8. 下一波次
-                if (enemies.length === 0) {
-                    wave++;
-                    updateHUD();
-                    spawnEnemies();
-                    createBunkers(); // 波次更新時修復掩體
-                }
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        const stars = Array.from({ length: 40 }, () => ({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            size: Math.random() * 1.8,
-            alpha: Math.random()
-        }));
-
-        function drawStars() {
-            ctx.save();
-            stars.forEach(s => {
-                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
-                ctx.fillRect(s.x, s.y, s.size, s.size);
-            });
-            ctx.restore();
-        }
-
-        function startGame() {
-            score = 0;
-            lives = 3;
-            wave = 1;
-            bullets = [];
-            particles = [];
-            updateHUD();
-            spawnEnemies();
-            createBunkers();
-            
-            gameState = "PLAYING";
-            gameOverlay.classList.add("hidden");
-            btnStartPause.innerHTML = `<i class="fa-solid fa-pause"></i> <span>暫停遊戲</span>`;
-        }
-
-        function pauseGame() {
-            gameState = "PAUSED";
-            overlayTitle.innerText = "遊戲暫停中";
-            overlaySubtitle.innerText = "點擊下方按鈕以繼續挑戰！";
-            btnOverlayAction.innerText = "繼續遊戲";
-            gameOverlay.classList.remove("hidden");
-            btnStartPause.innerHTML = `<i class="fa-solid fa-play"></i> <span>繼續遊戲</span>`;
-        }
-
-        function resumeGame() {
-            gameState = "PLAYING";
-            gameOverlay.classList.add("hidden");
-            btnStartPause.innerHTML = `<i class="fa-solid fa-pause"></i> <span>暫停遊戲</span>`;
-        }
-
-        function triggerGameOver() {
-            gameState = "GAMEOVER";
-            overlayTitle.innerText = "GAME OVER";
-            overlaySubtitle.innerText = `最終得分：${score} 分 (紀錄已存取)`;
-            btnOverlayAction.innerText = "再次挑戰";
-            gameOverlay.classList.remove("hidden");
-            btnStartPause.innerHTML = `<i class="fa-solid fa-play"></i> <span>重新開始</span>`;
-        }
-
-        btnStartPause.addEventListener("click", () => {
-            if (gameState === "IDLE" || gameState === "GAMEOVER") {
-                startGame();
-            } else if (gameState === "PLAYING") {
-                pauseGame();
-            } else if (gameState === "PAUSED") {
-                resumeGame();
-            }
-        });
-
-        btnRestart.addEventListener("click", () => {
-            startGame();
-        });
-
-        btnOverlayAction.addEventListener("click", () => {
-            if (gameState === "PAUSED") {
-                resumeGame();
-            } else {
-                startGame();
-            }
-        });
-
-        window.onload = () => {
-            btnStartPause.disabled = true;
-            initTeachableMachine();
-            requestAnimationFrame(gameLoop);
+                detectedCommand.innerText = "
         };
     </script>
 </body>
