@@ -66,7 +66,7 @@
             <div class="flex items-center gap-2 text-xs">
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-space-700/60 border border-space-border text-space-cyan">
                     <span class="w-2 h-2 rounded-full bg-space-cyan animate-pulse"></span>
-                    Model ID: <span class="font-mono text-slate-300">m0klYnaK8</span>
+                    Model ID: <span class="font-mono text-slate-300">2bEsyQ5vr</span>
                 </span>
             </div>
         </div>
@@ -215,7 +215,7 @@
                 <div>
                     <label class="block text-slate-400 text-xs mb-1">🔗 Teachable Machine 模型 URL</label>
                     <div class="flex gap-2">
-                        <input type="text" id="inputModelUrl" value="https://teachablemachine.withgoogle.com/models/m0klYnaK8/" class="w-full bg-space-900 border border-space-border rounded px-2.5 py-1.5 text-xs text-slate-200 focus:border-space-cyan focus:outline-none font-mono">
+                        <input type="text" id="inputModelUrl" value="https://teachablemachine.withgoogle.com/models/2bEsyQ5vr/" class="w-full bg-space-900 border border-space-border rounded px-2.5 py-1.5 text-xs text-slate-200 focus:border-space-cyan focus:outline-none font-mono">
                         <button id="btnReloadModel" class="px-3 py-1.5 bg-space-cyan text-space-900 font-bold text-xs rounded hover:bg-cyan-300 transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer">
                             <i class="fa-solid fa-rotate"></i> 載入
                         </button>
@@ -255,7 +255,7 @@
                         <i class="fa-solid fa-right-left text-space-pink"></i> UI 與操控左右反轉 (Invert)
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="invertControlsToggle" class="sr-only peer" checked>
+                        <input type="checkbox" id="invertControlsToggle" class="sr-only peer">
                         <div class="w-9 h-5 bg-space-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-space-pink"></div>
                     </label>
                 </div>
@@ -276,7 +276,7 @@
 
     <script>
         // --- Global Variables & References ---
-        let MODEL_URL = "https://teachablemachine.withgoogle.com/models/m0klYnaK8/";
+        let MODEL_URL = "https://teachablemachine.withgoogle.com/models/2bEsyQ5vr/";
         
         let model, webcam, maxPredictions = 0;
         let isPoseModel = false;
@@ -289,7 +289,7 @@
         let leftClassName = "";
         let rightClassName = "";
         let confidenceThreshold = 0.50;
-        let invertControls = true;
+        let invertControls = false;
 
         // Web Audio Synthesizer
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -1175,4 +1175,4 @@
         });
     </script>
 </body>
-</html> 
+</html>
